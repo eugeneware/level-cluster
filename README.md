@@ -7,6 +7,8 @@ multiple multilevel nodes.
 
 **NB: Work in progress. Not currently suitable for production.**
 
+Currently assumes [bytewise/hex](https://github.com/deanlandolt/bytewise) as a keyEncoding.
+
 ## Installation
 
 This module is installed via npm:
@@ -25,5 +27,8 @@ var servers = ['127.0.0.1:3000', '127.0.0.1:3001', '127.0.0.1:3002'];
 var db = new LevelCluster(servers);
 db.put(...); // will consistently hash the write to a server based on the key
 db.get(...); // will retrieve the right data from the right server
-db.createReadStream(); // will stream the data from the different servers and create a unified stream
+
+db.createReadStream();
+// will stream the data from the different servers and create a unified stream
+// AND make sure it's sorted
 ```
