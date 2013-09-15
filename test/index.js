@@ -18,21 +18,35 @@ describe('level-cluster', function() {
     rimraf.sync(_dbPath);
 
     var serverDb = levelup(_dbPath, dbOptions);
-    net.createServer(function (con) {
+    var tcpServer = net.createServer(function (con) {
       con.pipe(multilevel.server(serverDb)).pipe(con);
     }).listen(port, function (err) {
       if (err) return cb(err);
-      cb(null, serverDb);
+      cb(null, {
+        db: serverDb,
+        server: tcpServer,
+        close: cleanup
+      });
     });
+
+    function cleanup(cb) {
+      var next = after(2, done);
+      serverDb.close(next);
+      tcpServer.close(next);
+      function done(err) {
+        if (err) return cb(err);
+        cb();
+      }
+    }
   }
 
   it('should be able to spin up a multilevel instance', function(done) {
-    var serverDb, clientDb;
+    var clientDb, dbServer;
     server(1, 3000, connect);
-    function connect(err, _serverDb) {
+    function connect(err, server) {
       if (err) return done(err);
-      serverDb = _serverDb;
       clientDb = multilevel.client();
+      dbServer = server;
       var con = net.connect(3000);
       con.pipe(clientDb.createRpcStream()).pipe(con);
       clientDb.put(['mykey', 123], { please: 'work' }, get);
@@ -52,7 +66,7 @@ describe('level-cluster', function() {
     function cleanup() {
       var next = after(2, done);
       clientDb.close(next);
-      serverDb.close(next);
+      dbServer.close(next);
     }
   });
 
@@ -60,30 +74,30 @@ describe('level-cluster', function() {
     var numServers = 3, servers = [];
     var next = after(numServers, cleanup);
     range(0, numServers).forEach(function (i) {
-      server(i, 3000 + i, function (err, serverDb) {
+      server(i, 3000 + i, function (err, server) {
         if (err) return next(err);
-        servers[i] = serverDb;
+        servers[i] = server;
         next();
       });
     });
 
     function cleanup(err) {
       var next = after(numServers, done);
-      servers.forEach(function (serverDb) {
-        serverDb.close(next);
+      servers.forEach(function (server) {
+        server.close(next);
       });
     }
   });
 
-  it.only('should be able to write to multiple servers', function(done) {
+  it('should be able to write to multiple servers', function(done) {
     var numServers = 3, servers = [];
     var next = after(numServers, write);
     var ring = new HashRing();
     range(0, numServers).forEach(function (i) {
       var port = 3000 + i;
-      server(i, port, function (err, serverDb) {
+      server(i, port, function (err, server) {
         if (err) return next(err);
-        servers[i] = serverDb;
+        servers[i] = server;
         ring.add('127.0.0.1:' + port);
         next();
       });
@@ -123,10 +137,13 @@ describe('level-cluster', function() {
     }
 
     function cleanup(err) {
-      var next = after(numServers, done);
-      servers.forEach(function (serverDb) {
-        serverDb.close(next);
-      });
+      db.close(closeServers);
+      function closeServers() {
+        var next = after(numServers, done);
+        servers.forEach(function (server) {
+          server.close(next);
+        });
+      }
     }
   });
 });
