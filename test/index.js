@@ -7,6 +7,7 @@ var expect = require('expect.js'),
     rimraf = require('rimraf'),
     after = require('after'),
     range = require('range').range,
+    HashRing = require('hashring'),
     levelCluster = require('..');
 
 describe('level-cluster', function() {
@@ -55,7 +56,7 @@ describe('level-cluster', function() {
     }
   });
 
-  it.only('should be able to spin up multiple servers', function(done) {
+  it('should be able to spin up multiple servers', function(done) {
     var numServers = 3, servers = [];
     var next = after(numServers, cleanup);
     range(0, numServers).forEach(function (i) {
@@ -65,6 +66,61 @@ describe('level-cluster', function() {
         next();
       });
     });
+
+    function cleanup(err) {
+      var next = after(numServers, done);
+      servers.forEach(function (serverDb) {
+        serverDb.close(next);
+      });
+    }
+  });
+
+  it.only('should be able to write to multiple servers', function(done) {
+    var numServers = 3, servers = [];
+    var next = after(numServers, write);
+    var ring = new HashRing();
+    range(0, numServers).forEach(function (i) {
+      var port = 3000 + i;
+      server(i, port, function (err, serverDb) {
+        if (err) return next(err);
+        servers[i] = serverDb;
+        ring.add('127.0.0.1:' + port);
+        next();
+      });
+    });
+
+    var key = ['mykey', 123];
+    var value = { please: 'work' };
+    var db;
+
+    function write(err) {
+      if (err) return done(err);
+      var server = ring.get(bytewise.encode(key)).split(':');
+      var port = server[1];
+      db = multilevel.client();
+      var con = net.connect(port);
+      con.pipe(db.createRpcStream()).pipe(con);
+      db.put(key, value, function (err) {
+        if (err) return done(err);
+        db.close(get);
+      });
+    }
+
+    function get(err) {
+      if (err) return done(err);
+      var server = ring.get(bytewise.encode(key)).split(':');
+      var port = server[1];
+      db = multilevel.client();
+      var con = net.connect(port);
+      con.pipe(db.createRpcStream()).pipe(con);
+      db.get(key, check);
+    }
+
+    function check(err, _value) {
+      if (err) return done(err);
+      expect(value).to.eql(_value);
+      cleanup();
+    }
 
     function cleanup(err) {
       var next = after(numServers, done);

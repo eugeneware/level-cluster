@@ -31,7 +31,9 @@
   "bugs": {
     "url": "https://github.com/eugeneware/level-cluster/issues"
   },
-  "dependencies": {},
+  "dependencies": {
+    "hashring": "~1.0.2"
+  },
   "devDependencies": {
     "expect.js": "~0.2.0",
     "grunt-contrib-jshint": "~0.6.4",
