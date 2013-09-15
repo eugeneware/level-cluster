@@ -45,6 +45,7 @@
     "levelup": "~0.16.0",
     "bytewise": "~0.6.0",
     "leveldown": "~0.8.2",
-    "after": "~0.8.1"
+    "after": "~0.8.1",
+    "range": "0.0.1"
   }
 }

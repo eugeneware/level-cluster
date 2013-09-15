@@ -6,26 +6,26 @@ var expect = require('expect.js'),
     bytewise = require('bytewise/hex'),
     rimraf = require('rimraf'),
     after = require('after'),
+    range = require('range').range,
     levelCluster = require('..');
 
 describe('level-cluster', function() {
   var dbPath = path.join(__dirname, '..', 'data');
+  function server(id, port, cb) {
+    var dbOptions = { keyEncoding: bytewise, valueEncoding: 'json' };
+    var _dbPath = path.join(dbPath, 'db' + id);
+    rimraf.sync(_dbPath);
+
+    var serverDb = levelup(_dbPath, dbOptions);
+    net.createServer(function (con) {
+      con.pipe(multilevel.server(serverDb)).pipe(con);
+    }).listen(port, function (err) {
+      if (err) return cb(err);
+      cb(null, serverDb);
+    });
+  }
 
   it('should be able to spin up a multilevel instance', function(done) {
-    function server(id, port, cb) {
-      var dbOptions = { keyEncoding: bytewise, valueEncoding: 'json' };
-      var _dbPath = path.join(dbPath, 'db' + id);
-      rimraf.sync(_dbPath);
-
-      var serverDb = levelup(_dbPath, dbOptions);
-      net.createServer(function (con) {
-        con.pipe(multilevel.server(serverDb)).pipe(con);
-      }).listen(port, function (err) {
-        if (err) return cb(err);
-        cb(null, serverDb);
-      });
-    }
-
     var serverDb, clientDb;
     server(1, 3000, connect);
     function connect(err, _serverDb) {
@@ -52,6 +52,25 @@ describe('level-cluster', function() {
       var next = after(2, done);
       clientDb.close(next);
       serverDb.close(next);
+    }
+  });
+
+  it.only('should be able to spin up multiple servers', function(done) {
+    var numServers = 3, servers = [];
+    var next = after(numServers, cleanup);
+    range(0, numServers).forEach(function (i) {
+      server(i, 3000 + i, function (err, serverDb) {
+        if (err) return next(err);
+        servers[i] = serverDb;
+        next();
+      });
+    });
+
+    function cleanup(err) {
+      var next = after(numServers, done);
+      servers.forEach(function (serverDb) {
+        serverDb.close(next);
+      });
     }
   });
 });
