@@ -90,25 +90,42 @@ describe('level-cluster', function() {
   });
 
   it('should be able to write to multiple servers', function(done) {
-    var numServers = 3, servers = [];
-    var next = after(numServers, write);
-    var ring = new HashRing();
-    range(0, numServers).forEach(function (i) {
-      var port = 3000 + i;
-      server(i, port, function (err, server) {
-        if (err) return next(err);
-        servers[i] = server;
-        ring.add('127.0.0.1:' + port);
-        next();
+    function startCluster(ring, numServers, cb) {
+      var servers = [];
+      var next = after(numServers, finish);
+      range(0, numServers).forEach(function (i) {
+        var port = 3000 + i;
+        server(i, port, function (err, server) {
+          if (err) return next(err);
+          servers[i] = server;
+          ring.add('127.0.0.1:' + port);
+          next();
+        });
       });
-    });
 
+      function finish(err) {
+        if (err) return cb(err);
+        cb(null, { close: cleanup });
+      }
+
+      function cleanup(cb) {
+        var next = after(servers.length, cb);
+        servers.forEach(function (server) {
+          server.close(next);
+        });
+      }
+    }
+
+    var ring = new HashRing();
     var key = ['mykey', 123];
     var value = { please: 'work' };
-    var db;
+    var db, cluster;
 
-    function write(err) {
+    startCluster(ring, 3, write);
+
+    function write(err, _cluster) {
       if (err) return done(err);
+      cluster = _cluster;
       var server = ring.get(bytewise.encode(key)).split(':');
       var port = server[1];
       db = multilevel.client();
@@ -139,10 +156,7 @@ describe('level-cluster', function() {
     function cleanup(err) {
       db.close(closeServers);
       function closeServers() {
-        var next = after(numServers, done);
-        servers.forEach(function (server) {
-          server.close(next);
-        });
+        cluster.close(done);
       }
     }
   });
