@@ -8,7 +8,7 @@ var expect = require('expect.js'),
     after = require('after'),
     range = require('range').range,
     HashRing = require('hashring'),
-    levelCluster = require('..');
+    LevelCluster = require('..');
 
 describe('level-cluster', function() {
   var dbPath = path.join(__dirname, '..', 'data');
@@ -154,5 +154,31 @@ describe('level-cluster', function() {
     function cleanup(err) {
       db.close(done);
     }
+  });
+
+  it('should use the level cluster object', function(done) {
+    var servers = range(0, numServers).map(function (i) {
+      return '127.0.0.1:' + (clusterPortStart + i);
+    });
+    var key = ['mykey', 123];
+    var value = { please: 'work' };
+    var db = new LevelCluster(servers);
+    db.put(key, value, get);
+
+    function get(err) {
+      if (err) return done(err);
+      db.get(key, check);
+    }
+
+    function check(err, _value) {
+      if (err) return done(err);
+      expect(value).to.eql(_value);
+      cleanup();
+    }
+
+    function cleanup() {
+      db.close(done);
+    }
+
   });
 });
