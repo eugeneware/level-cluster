@@ -1,0 +1,50 @@
+{
+  "name": "level-cluster",
+  "version": "0.0.1",
+  "description": "Use consistent-hashing with hash-rings to distribute reads and writes across multiple multilevel nodes.",
+  "main": "index.js",
+  "scripts": {
+    "test": "node_modules/.bin/grunt ci"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eugeneware/level-cluster"
+  },
+  "keywords": [
+    "level",
+    "levelup",
+    "leveldb",
+    "cluster",
+    "hash",
+    "clustering",
+    "availability",
+    "high-availability",
+    "nosql",
+    "datqbase",
+    "node-hashring",
+    "hashing",
+    "consistent",
+    "multilevel"
+  ],
+  "author": "Eugene Ware <eugene@noblesamurai.com>",
+  "license": "BSD-3-Clause",
+  "bugs": {
+    "url": "https://github.com/eugeneware/level-cluster/issues"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "expect.js": "~0.2.0",
+    "grunt-contrib-jshint": "~0.6.4",
+    "grunt-contrib-watch": "~0.5.3",
+    "grunt": "~0.4.1",
+    "grunt-mocha-cli": "~1.1.0",
+    "grunt-complexity": "~0.1.3",
+    "grunt-cli": "~0.1.9",
+    "multilevel": "~5.5.0",
+    "rimraf": "~2.2.2",
+    "levelup": "~0.16.0",
+    "bytewise": "~0.6.0",
+    "leveldown": "~0.8.2",
+    "after": "~0.8.1"
+  }
+}
