@@ -25,8 +25,15 @@ on `['127.0.0.1:3000', '127.0.0.1:3001', '127.0.0.1:3002']`:
 ``` js
 var servers = ['127.0.0.1:3000', '127.0.0.1:3001', '127.0.0.1:3002'];
 var db = new LevelCluster(servers);
-db.put(...); // will consistently hash the write to a server based on the key
-db.get(...); // will retrieve the right data from the right server
+
+ // will consistently hash the write to a server based on the key
+db.put(...);
+
+// will consistently hash all the writes and deletes to the right servers
+db.batch(...);
+
+// will retrieve the right data from the right server
+db.get(...);
 
 db.createReadStream();
 // will stream the data from the different servers and create a unified stream
