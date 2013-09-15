@@ -12,18 +12,25 @@ describe('level-cluster', function() {
   var dbPath = path.join(__dirname, '..', 'data');
 
   it('should be able to spin up a multilevel instance', function(done) {
-    var dbOptions = { keyEncoding: bytewise, valueEncoding: 'json' };
-    var db1Path = path.join(dbPath, 'db1');
-    rimraf.sync(db1Path);
+    function server(id, port, cb) {
+      var dbOptions = { keyEncoding: bytewise, valueEncoding: 'json' };
+      var _dbPath = path.join(dbPath, 'db' + id);
+      rimraf.sync(_dbPath);
 
-    var serverDb = levelup(db1Path, dbOptions);
-    net.createServer(function (con) {
-      con.pipe(multilevel.server(serverDb)).pipe(con);
-    }).listen(3000, connect);
+      var serverDb = levelup(_dbPath, dbOptions);
+      net.createServer(function (con) {
+        con.pipe(multilevel.server(serverDb)).pipe(con);
+      }).listen(port, function (err) {
+        if (err) return cb(err);
+        cb(null, serverDb);
+      });
+    }
 
-    var clientDb;
-    function connect(err) {
+    var serverDb, clientDb;
+    server(1, 3000, connect);
+    function connect(err, _serverDb) {
       if (err) return done(err);
+      serverDb = _serverDb;
       clientDb = multilevel.client();
       var con = net.connect(3000);
       con.pipe(clientDb.createRpcStream()).pipe(con);
