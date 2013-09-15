@@ -26,6 +26,23 @@ LevelCluster.prototype.get = function (key, cb) {
   return db.get(key, cb);
 };
 
+LevelCluster.prototype.batch = function (batch, cb) {
+  var self = this;
+  var batches = batch.reduce(function (acc, item) {
+    var serverName = self.getServerNameByKey(item.key);
+    acc[serverName] = acc[serverName] || [];
+    acc[serverName].push(item);
+    return acc;
+  }, {});
+  var keys = Object.keys(batches);
+  var next = after(keys.length, cb);
+  keys.forEach(function (serverName) {
+    var server = self.getServerByName(serverName);
+    var batch = batches[serverName];
+    server.batch(batch, next);
+  });
+};
+
 LevelCluster.prototype.close = function (cb) {
   var serverKeys = Object.keys(this.servers);
   var next = after(serverKeys.length, cb);
@@ -36,8 +53,16 @@ LevelCluster.prototype.close = function (cb) {
   });
 };
 
+LevelCluster.prototype.getServerNameByKey = function (key) {
+  return this.ring.get(bytewise.encode(key));
+};
+
 LevelCluster.prototype.getServerByKey = function (key) {
-  var server = this.ring.get(bytewise.encode(key));
+  var server = this.getServerNameByKey(key);
+  return this.getServerByName(server);
+};
+
+LevelCluster.prototype.getServerByName = function (server) {
   if (typeof this.servers[server] === 'undefined') {
     this.servers[server] = getServer(server);
   }

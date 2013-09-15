@@ -179,6 +179,35 @@ describe('level-cluster', function() {
     function cleanup() {
       db.close(done);
     }
+  });
 
+  it('should be able to cluster batch operations', function(done) {
+    var servers = range(0, numServers).map(function (i) {
+      return '127.0.0.1:' + (clusterPortStart + i);
+    });
+    var db = new LevelCluster(servers);
+
+    var batch = range(0, 10).map(function (i) {
+      return {
+        type: 'put',
+        key: ['key', i],
+        value: {
+          val: 'value ' + i
+        }
+      };
+    });
+
+    db.batch(batch, get);
+
+    function get(err) {
+      if (err) return done(err);
+      db.get(['key', 3], check);
+    }
+
+    function check(err, _value) {
+      if (err) return done(err);
+      expect(_value).to.eql({ val: 'value 3' });
+      db.close(done);
+    }
   });
 });
