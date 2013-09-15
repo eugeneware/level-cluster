@@ -3,12 +3,14 @@ var multilevel = require('multilevel'),
     bytewise = require('bytewise/hex'),
     net = require('net'),
     after = require('after'),
+    joiner = require('joiner-stream'),
     setImmediate = global.setImmediate || process.nextTick;
 
 module.exports = LevelCluster;
 
 function LevelCluster(_servers, options) {
   options = options || {};
+  this._servers = _servers;
   this.ring = _servers.reduce(function (acc, item) {
     acc.add(item);
     return acc;
@@ -43,13 +45,36 @@ LevelCluster.prototype.batch = function (batch, cb) {
   });
 };
 
+LevelCluster.prototype.createReadStream = function (options) {
+  this.connectAllServers();
+  var serverKeys = Object.keys(this.servers);
+  var aggregator = joiner();
+  var self = this;
+  serverKeys.forEach(function (serverKey) {
+    var server = self.servers[serverKey];
+    server.createReadStream(options).pipe(aggregator);
+  });
+  return aggregator;
+};
+
 LevelCluster.prototype.close = function (cb) {
   var serverKeys = Object.keys(this.servers);
   var next = after(serverKeys.length, cb);
   var self = this;
   serverKeys.forEach(function (key) {
     var db = self.servers[key];
-    db.close(next);
+    try {
+      db.close(next);
+    } catch (err) {
+      next();
+    }
+  });
+};
+
+LevelCluster.prototype.connectAllServers = function () {
+  var self = this;
+  self._servers.forEach(function (serverName) {
+    var server = self.getServerByName(serverName);
   });
 };
 
@@ -75,5 +100,6 @@ function getServer(server) {
   var db = multilevel.client();
   var con = net.connect(port);
   con.pipe(db.createRpcStream()).pipe(con);
+  db.serverName = server;
   return db;
 }

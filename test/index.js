@@ -8,6 +8,7 @@ var expect = require('expect.js'),
     after = require('after'),
     range = require('range').range,
     HashRing = require('hashring'),
+    through = require('through'),
     LevelCluster = require('..');
 
 describe('level-cluster', function() {
@@ -34,13 +35,9 @@ describe('level-cluster', function() {
     });
 
     function cleanup(cb) {
-      var next = after(2, done);
+      var next = after(2, cb);
       serverDb.close(next);
       tcpServer.close(next);
-      function done(err) {
-        if (err) return cb(err);
-        cb();
-      }
     }
   }
 
@@ -51,6 +48,7 @@ describe('level-cluster', function() {
       var port = clusterPortStart + i;
       server(i, port, function (err, server) {
         if (err) return next(err);
+        server.serverName = '127.0.0.1:' + port;
         servers[i] = server;
         next();
       });
@@ -207,6 +205,41 @@ describe('level-cluster', function() {
     function check(err, _value) {
       if (err) return done(err);
       expect(_value).to.eql({ val: 'value 3' });
+      db.close(done);
+    }
+  });
+
+  it.only('should be able to create a read stream', function(done) {
+    var servers = range(0, numServers).map(function (i) {
+      return '127.0.0.1:' + (clusterPortStart + i);
+    });
+    var db = new LevelCluster(servers);
+
+    var batch = range(0, 10).map(function (i) {
+      return {
+        type: 'put',
+        key: ['key', i],
+        value: {
+          val: 'value ' + i
+        }
+      };
+    });
+
+    db.batch(batch, stream);
+
+    var count = 0;
+    function stream(err) {
+      if (err) return done(err);
+      db.createReadStream().pipe(through(write, finish));
+    }
+
+    function write(data) {
+      console.log(data);
+      count++;
+    }
+
+    function finish() {
+      expect(count).to.equal(10);
       db.close(done);
     }
   });

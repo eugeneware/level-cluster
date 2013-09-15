@@ -32,7 +32,9 @@
     "url": "https://github.com/eugeneware/level-cluster/issues"
   },
   "dependencies": {
-    "hashring": "~1.0.2"
+    "hashring": "~1.0.2",
+    "through": "~2.3.4",
+    "joiner-stream": "0.0.2"
   },
   "devDependencies": {
     "expect.js": "~0.2.0",
