@@ -52,7 +52,13 @@ LevelCluster.prototype.createReadStream = function (options) {
   var self = this;
   serverKeys.forEach(function (serverKey) {
     var server = self.servers[serverKey];
-    server.createReadStream(options).pipe(aggregator);
+    var s = server.createReadStream(options);
+    s.on('error', function (err) {
+      // for some reason we get this error
+      if (err.toString() !== 'Error: unexpected disconnection') 
+        aggregator.emit('error', err);
+    });
+    s.pipe(aggregator);
   });
   return aggregator;
 };
@@ -63,11 +69,7 @@ LevelCluster.prototype.close = function (cb) {
   var self = this;
   serverKeys.forEach(function (key) {
     var db = self.servers[key];
-    try {
-      db.close(next);
-    } catch (err) {
-      next();
-    }
+    db.close(next);
   });
 };
 

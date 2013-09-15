@@ -209,7 +209,7 @@ describe('level-cluster', function() {
     }
   });
 
-  it.only('should be able to create a read stream', function(done) {
+  it('should be able to create a read stream', function(done) {
     var servers = range(0, numServers).map(function (i) {
       return '127.0.0.1:' + (clusterPortStart + i);
     });
@@ -230,11 +230,14 @@ describe('level-cluster', function() {
     var count = 0;
     function stream(err) {
       if (err) return done(err);
-      db.createReadStream().pipe(through(write, finish));
+      var s = db.createReadStream();
+      s.pipe(through(write, finish));
     }
 
     function write(data) {
-      console.log(data);
+      expect(data.key[0]).to.equal('key');
+      expect(data.key[1]).to.not.be.below(0);
+      expect(data.value.val).to.match(/^value [0-9]+$/);
       count++;
     }
 
