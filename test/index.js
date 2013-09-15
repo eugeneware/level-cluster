@@ -12,9 +12,13 @@ var expect = require('expect.js'),
 
 describe('level-cluster', function() {
   var dbPath = path.join(__dirname, '..', 'data');
+  var cluster;
+  var numServers = 3;
+  var clusterPortStart = 3000;
+
   function server(id, port, cb) {
     var dbOptions = { keyEncoding: bytewise, valueEncoding: 'json' };
-    var _dbPath = path.join(dbPath, 'db' + id);
+    var _dbPath = path.join(dbPath, 'db' + (id + port));
     rimraf.sync(_dbPath);
 
     var serverDb = levelup(_dbPath, dbOptions);
@@ -40,14 +44,51 @@ describe('level-cluster', function() {
     }
   }
 
+  function startCluster(numServers, cb) {
+    var servers = [];
+    var next = after(numServers, finish);
+    range(0, numServers).forEach(function (i) {
+      var port = clusterPortStart + i;
+      server(i, port, function (err, server) {
+        if (err) return next(err);
+        servers[i] = server;
+        next();
+      });
+    });
+
+    function finish(err) {
+      if (err) return cb(err);
+      cb(null, { close: cleanup });
+    }
+
+    function cleanup(cb) {
+      var next = after(servers.length, cb);
+      servers.forEach(function (server) {
+        server.close(next);
+      });
+    }
+  }
+
+  beforeEach(function(done) {
+    startCluster(numServers, function (err, _cluster) {
+      if (err) return done(err);
+      cluster = _cluster;
+      done();
+    });
+  });
+
+  afterEach(function(done) {
+    cluster.close(done);
+  });
+
   it('should be able to spin up a multilevel instance', function(done) {
     var clientDb, dbServer;
-    server(1, 3000, connect);
+    server(1, 4000, connect);
     function connect(err, server) {
       if (err) return done(err);
       clientDb = multilevel.client();
       dbServer = server;
-      var con = net.connect(3000);
+      var con = net.connect(4000);
       con.pipe(clientDb.createRpcStream()).pipe(con);
       clientDb.put(['mykey', 123], { please: 'work' }, get);
     }
@@ -70,62 +111,19 @@ describe('level-cluster', function() {
     }
   });
 
-  it('should be able to spin up multiple servers', function(done) {
-    var numServers = 3, servers = [];
-    var next = after(numServers, cleanup);
+  it('should be able to write to multiple servers', function(done) {
+    var ring = new HashRing();
     range(0, numServers).forEach(function (i) {
-      server(i, 3000 + i, function (err, server) {
-        if (err) return next(err);
-        servers[i] = server;
-        next();
-      });
+      ring.add('127.0.0.1:' + (clusterPortStart + i));
     });
 
-    function cleanup(err) {
-      var next = after(numServers, done);
-      servers.forEach(function (server) {
-        server.close(next);
-      });
-    }
-  });
-
-  it('should be able to write to multiple servers', function(done) {
-    function startCluster(ring, numServers, cb) {
-      var servers = [];
-      var next = after(numServers, finish);
-      range(0, numServers).forEach(function (i) {
-        var port = 3000 + i;
-        server(i, port, function (err, server) {
-          if (err) return next(err);
-          servers[i] = server;
-          ring.add('127.0.0.1:' + port);
-          next();
-        });
-      });
-
-      function finish(err) {
-        if (err) return cb(err);
-        cb(null, { close: cleanup });
-      }
-
-      function cleanup(cb) {
-        var next = after(servers.length, cb);
-        servers.forEach(function (server) {
-          server.close(next);
-        });
-      }
-    }
-
-    var ring = new HashRing();
     var key = ['mykey', 123];
     var value = { please: 'work' };
-    var db, cluster;
+    var db;
 
-    startCluster(ring, 3, write);
+    write();
 
-    function write(err, _cluster) {
-      if (err) return done(err);
-      cluster = _cluster;
+    function write() {
       var server = ring.get(bytewise.encode(key)).split(':');
       var port = server[1];
       db = multilevel.client();
@@ -154,10 +152,7 @@ describe('level-cluster', function() {
     }
 
     function cleanup(err) {
-      db.close(closeServers);
-      function closeServers() {
-        cluster.close(done);
-      }
+      db.close(done);
     }
   });
 });
