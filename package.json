@@ -1,6 +1,6 @@
 {
   "name": "level-cluster",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Use consistent-hashing with hash-rings to distribute reads and writes across multiple multilevel nodes.",
   "main": "index.js",
   "scripts": {
