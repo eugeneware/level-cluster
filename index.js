@@ -1,9 +1,10 @@
 var multilevel = require('multilevel'),
     HashRing = require('hashring'),
     bytewise = require('bytewise/hex'),
+    encodeKey = bytewise.encode.bind(bytewise),
     net = require('net'),
     after = require('after'),
-    joiner = require('joiner-stream'),
+    merge = require('mergesort-stream'),
     setImmediate = global.setImmediate || process.nextTick;
 
 module.exports = LevelCluster;
@@ -48,17 +49,19 @@ LevelCluster.prototype.batch = function (batch, cb) {
 LevelCluster.prototype.createReadStream = function (options) {
   this.connectAllServers();
   var serverKeys = Object.keys(this.servers);
-  var aggregator = joiner();
   var self = this;
+  var streams = [];
   serverKeys.forEach(function (serverKey) {
     var server = self.servers[serverKey];
-    var s = server.createReadStream(options);
-    s.on('error', function (err) {
+    streams.push(server.createReadStream(options));
+  });
+  var aggregator = merge(compare, streams);
+  streams.forEach(function (stream) {
+    stream.on('error', function (err) {
       // for some reason we get this error
       if (err.toString() !== 'Error: unexpected disconnection') 
         aggregator.emit('error', err);
     });
-    s.pipe(aggregator);
   });
   return aggregator;
 };
@@ -81,7 +84,7 @@ LevelCluster.prototype.connectAllServers = function () {
 };
 
 LevelCluster.prototype.getServerNameByKey = function (key) {
-  return this.ring.get(bytewise.encode(key));
+  return this.ring.get(encodeKey(key));
 };
 
 LevelCluster.prototype.getServerByKey = function (key) {
@@ -104,4 +107,12 @@ function getServer(server) {
   con.pipe(db.createRpcStream()).pipe(con);
   db.serverName = server;
   return db;
+}
+
+function compare(value1, value2) {
+  var key1 = encodeKey(value1.key),
+      key2 = encodeKey(value2.key);
+  if (key1 > key2) return 1;
+  else if (key1 < key2) return -1;
+  return 0;
 }

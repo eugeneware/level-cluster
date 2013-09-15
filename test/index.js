@@ -215,7 +215,8 @@ describe('level-cluster', function() {
     });
     var db = new LevelCluster(servers);
 
-    var batch = range(0, 10).map(function (i) {
+    var numRecords = 20;
+    var batch = range(0, numRecords).map(function (i) {
       return {
         type: 'put',
         key: ['key', i],
@@ -234,15 +235,18 @@ describe('level-cluster', function() {
       s.pipe(through(write, finish));
     }
 
+    var lastKey = -1;
     function write(data) {
       expect(data.key[0]).to.equal('key');
       expect(data.key[1]).to.not.be.below(0);
+      expect(data.key[1]).to.not.be.below(lastKey);
       expect(data.value.val).to.match(/^value [0-9]+$/);
+      lastKey = data.key[1];
       count++;
     }
 
     function finish() {
-      expect(count).to.equal(10);
+      expect(count).to.equal(numRecords);
       db.close(done);
     }
   });
