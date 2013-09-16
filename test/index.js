@@ -127,6 +127,15 @@ describe('level-cluster', function() {
     function check(err, _value) {
       if (err) return done(err);
       expect(value).to.eql(_value);
+      db.del(key, get2);
+    }
+
+    function get2(err) {
+      db.get(key, check2);
+    }
+
+    function check2(err) {
+      expect(err.notFound).to.equal(true);
       cleanup();
     }
 
