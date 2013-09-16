@@ -105,31 +105,11 @@ LevelCluster.prototype.createKeyStream = function (options) {
 };
 
 LevelCluster.prototype.createValueStream = function (options) {
-  this.connectAllServers();
-  var serverKeys = Object.keys(this.servers);
-  var self = this;
-  var streams = [];
   options = options || {};
   // we need to the keys in order to sort the values in the right order
-  options.keys = true;
+  options.keys = false;
   options.values = true;
-  serverKeys.forEach(function (serverKey) {
-    var server = self.servers[serverKey];
-    streams.push(server.createReadStream(options));
-  });
-  var aggregator = merge(compare, streams);
-  streams.forEach(function (stream) {
-    stream.on('error', function (err) {
-      // for some reason we get this error
-      if (err.toString() !== 'Error: unexpected disconnection') 
-        aggregator.emit('error', err);
-    });
-  });
-  var t = through(function (data) {
-    this.queue(data.value);
-  });
-  aggregator.pipe(t);
-  return t;
+  return this.createReadStream(options);
 };
 
 LevelCluster.prototype.close = function (cb) {
