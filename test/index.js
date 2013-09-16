@@ -109,51 +109,6 @@ describe('level-cluster', function() {
     }
   });
 
-  it('should be able to write to multiple servers', function(done) {
-    var ring = new HashRing();
-    range(0, numServers).forEach(function (i) {
-      ring.add('127.0.0.1:' + (clusterPortStart + i));
-    });
-
-    var key = ['mykey', 123];
-    var value = { please: 'work' };
-    var db;
-
-    write();
-
-    function write() {
-      var server = ring.get(bytewise.encode(key)).split(':');
-      var port = server[1];
-      db = multilevel.client();
-      var con = net.connect(port);
-      con.pipe(db.createRpcStream()).pipe(con);
-      db.put(key, value, function (err) {
-        if (err) return done(err);
-        db.close(get);
-      });
-    }
-
-    function get(err) {
-      if (err) return done(err);
-      var server = ring.get(bytewise.encode(key)).split(':');
-      var port = server[1];
-      db = multilevel.client();
-      var con = net.connect(port);
-      con.pipe(db.createRpcStream()).pipe(con);
-      db.get(key, check);
-    }
-
-    function check(err, _value) {
-      if (err) return done(err);
-      expect(value).to.eql(_value);
-      cleanup();
-    }
-
-    function cleanup(err) {
-      db.close(done);
-    }
-  });
-
   it('should use the level cluster object', function(done) {
     var servers = range(0, numServers).map(function (i) {
       return '127.0.0.1:' + (clusterPortStart + i);
