@@ -31,6 +31,11 @@ LevelCluster.prototype.get = function (key, cb) {
   return db.get(key, cb);
 };
 
+LevelCluster.prototype.del = function (key, cb) {
+  var db = this.getServerByKey(key);
+  return db.del(key, cb);
+};
+
 LevelCluster.prototype.batch = function (batch, cb) {
   var self = this;
   var batches = batch.reduce(function (acc, item) {
@@ -113,6 +118,9 @@ LevelCluster.prototype.createValueStream = function (options) {
 };
 
 LevelCluster.prototype.createWriteStream = function (options) {
+  options = options || {};
+  options.type = options.type || 'put';
+
   var t = through(write, end);
   var inflight = 0;
   var self = this;
@@ -120,17 +128,24 @@ LevelCluster.prototype.createWriteStream = function (options) {
 
   function write(data) {
     inflight++;
-    var s = this;
-    self.put(data.key, data.value, function (err) {
-      --inflight;
-      if (err) {
-        return s.emit('error', err);
-      }
-      s.queue(data);
-      if (inflight === 0 && ended) {
-        s.queue(null);
-      }
-    });
+    var _type = data.type || options.type;
+    if (_type !== 'del' && _type !== 'put') _type = 'put';
+    if (_type === 'del') {
+      self.del(data.key, cb.bind(this, data));
+    } else {
+      self.put(data.key, data.value, cb.bind(this, data));
+    }
+  }
+
+  function cb(data, err) {
+    --inflight;
+    if (err) {
+      return this.emit('error', err);
+    }
+    this.queue(data);
+    if (inflight === 0 && ended) {
+      this.queue(null);
+    }
   }
 
   function end() {

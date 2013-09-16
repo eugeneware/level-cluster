@@ -358,4 +358,56 @@ describe('level-cluster', function() {
       db.close(done);
     }
   });
+
+  it('should be able to do deletes in a write stream', function(done) {
+    var servers = range(0, numServers).map(function (i) {
+      return '127.0.0.1:' + (clusterPortStart + i);
+    });
+    var db = new LevelCluster(servers);
+
+    var numRecords = 20;
+    var batchPut = range(0, numRecords).map(function (i) {
+      return {
+        type: 'put',
+        key: ['key', i],
+        value: {
+          val: 'value ' + i,
+          num: i
+        }
+      };
+    });
+    var batchDel = range(0, numRecords, 2).map(function (i) {
+      return {
+        type: 'del',
+        key: ['key', i],
+        value: {
+          val: 'value ' + i,
+          num: i
+        }
+      };
+    });
+
+    db.batch(batchPut, stream);
+
+    function stream(err) {
+      if (err) return done(err);
+      var batchDelStream = arraystream.create(batchDel);
+      batchDelStream.pipe(db.createWriteStream()).on('end', get);
+    }
+
+    function get() {
+      db.get(['key', 3], function (err, value) {
+        if (err) return done(err);
+        expect(value).to.eql({ val: 'value 3', num: 3 });
+        get2();
+      });
+    }
+
+    function get2() {
+      db.get(['key', 8], function (err, value) {
+        expect(err.notFound).to.equal(true);
+        db.close(done);
+      });
+    }
+  });
 });
