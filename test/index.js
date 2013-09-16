@@ -9,6 +9,7 @@ var expect = require('expect.js'),
     range = require('range').range,
     HashRing = require('hashring'),
     through = require('through'),
+    arraystream = require('arraystream'),
     LevelCluster = require('..');
 
 describe('level-cluster', function() {
@@ -325,6 +326,35 @@ describe('level-cluster', function() {
 
     function finish() {
       expect(count).to.equal(numRecords);
+      db.close(done);
+    }
+  });
+
+  it('should be able to create a write stream', function(done) {
+    var servers = range(0, numServers).map(function (i) {
+      return '127.0.0.1:' + (clusterPortStart + i);
+    });
+    var numRecords = 20;
+    var batch = range(0, numRecords).map(function (i) {
+      return {
+        type: 'put',
+        key: ['key', i],
+        value: {
+          val: 'value ' + i,
+          num: i
+        }
+      };
+    });
+    var generator = arraystream.create(batch);
+    var db = new LevelCluster(servers);
+    generator.pipe(db.createWriteStream()).on('end', get);
+
+    function get() {
+      db.get(['key', 5], check);
+    }
+
+    function check(err, value) {
+      expect(value).to.eql({ val: 'value 5', num: 5 });
       db.close(done);
     }
   });

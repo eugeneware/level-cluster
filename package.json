@@ -51,6 +51,7 @@
     "bytewise": "~0.6.0",
     "leveldown": "~0.8.2",
     "after": "~0.8.1",
-    "range": "0.0.1"
+    "range": "0.0.1",
+    "arraystream": "0.0.5"
   }
 }

@@ -112,6 +112,37 @@ LevelCluster.prototype.createValueStream = function (options) {
   return this.createReadStream(options);
 };
 
+LevelCluster.prototype.createWriteStream = function (options) {
+  var t = through(write, end);
+  var inflight = 0;
+  var self = this;
+  var ended = false;
+
+  function write(data) {
+    inflight++;
+    var s = this;
+    self.put(data.key, data.value, function (err) {
+      --inflight;
+      if (err) {
+        return s.emit('error', err);
+      }
+      s.queue(data);
+      if (inflight === 0 && ended) {
+        s.queue(null);
+      }
+    });
+  }
+
+  function end() {
+    ended = true;
+    if (inflight === 0 && ended) {
+      this.queue(null);
+    }
+  }
+
+  return t;
+};
+
 LevelCluster.prototype.close = function (cb) {
   var serverKeys = Object.keys(this.servers);
   var next = after(serverKeys.length, cb);
