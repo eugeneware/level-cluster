@@ -7,6 +7,9 @@ multiple multilevel nodes.
 
 **NB: Work in progress. Not currently suitable for production.**
 
+`level-cluster` tries to implement the [levelup](https://github.com/rvagg/node-levelup) API
+but on top of a [multilevel](https://github.com/juliangruber/multilevel) cluster.
+
 Currently assumes [bytewise/hex](https://github.com/deanlandolt/bytewise) as a keyEncoding.
 
 ## Installation
@@ -35,7 +38,14 @@ db.batch(...);
 // will retrieve the right data from the right server
 db.get(...);
 
+// will delete the right data from the right server
+db.del(...);
+
 db.createReadStream();
 // will stream the data from the different servers and create a unified stream
 // AND make sure it's sorted
+
+generatorStream().pipe(db.createWriteStream());
+// will distribute writes and deletes across the cluster based on the hashes of
+// keys
 ```
