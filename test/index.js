@@ -287,4 +287,45 @@ describe('level-cluster', function() {
       db.close(done);
     }
   });
+
+  it('should be able to create a read stream of only values', function(done) {
+    var servers = range(0, numServers).map(function (i) {
+      return '127.0.0.1:' + (clusterPortStart + i);
+    });
+    var db = new LevelCluster(servers);
+
+    var numRecords = 20;
+    var batch = range(0, numRecords).map(function (i) {
+      return {
+        type: 'put',
+        key: ['key', i],
+        value: {
+          val: 'value ' + i,
+          num: i
+        }
+      };
+    });
+
+    db.batch(batch, stream);
+
+    var count = 0;
+    function stream(err) {
+      if (err) return done(err);
+      var s = db.createReadStream({ keys: false, values: true });
+      s.pipe(through(write, finish));
+    }
+
+    var lastValue = -1;
+    function write(value) {
+      expect(value.val).to.match(/^value [0-9]+$/);
+      expect(value.num).to.not.be.below(lastValue);
+      lastValue = value.num;
+      count++;
+    }
+
+    function finish() {
+      expect(count).to.equal(numRecords);
+      db.close(done);
+    }
+  });
 });

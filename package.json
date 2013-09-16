@@ -34,7 +34,8 @@
   "dependencies": {
     "hashring": "~1.0.2",
     "through": "~2.3.4",
-    "mergesort-stream": "0.0.1"
+    "mergesort-stream": "0.0.1",
+    "clone": "~0.1.10"
   },
   "devDependencies": {
     "expect.js": "~0.2.0",

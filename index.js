@@ -6,6 +6,7 @@ var multilevel = require('multilevel'),
     after = require('after'),
     merge = require('mergesort-stream'),
     through = require('through'),
+    clone = require('clone'),
     setImmediate = global.setImmediate || process.nextTick;
 
 module.exports = LevelCluster;
@@ -48,6 +49,12 @@ LevelCluster.prototype.batch = function (batch, cb) {
 };
 
 LevelCluster.prototype.createReadStream = function (options) {
+  options = options || {};
+  var _options = clone(options);
+  // we need to the keys in order to sort the values in the right order
+  options.keys = true;
+  options.values = true;
+
   this.connectAllServers();
   var serverKeys = Object.keys(this.servers);
   var self = this;
@@ -64,7 +71,17 @@ LevelCluster.prototype.createReadStream = function (options) {
         aggregator.emit('error', err);
     });
   });
-  return aggregator;
+  var t = through(function (data) {
+    if (_options && _options.keys === false) {
+      this.queue(data.value);
+    } else if (_options && _options.keys === true && _options.values === false) {
+      this.queue(data.key);
+    } else {
+      this.queue(data);
+    }
+  });
+  aggregator.pipe(t);
+  return t;
 };
 
 LevelCluster.prototype.createKeyStream = function (options) {
