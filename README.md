@@ -27,6 +27,7 @@ on `['127.0.0.1:3000', '127.0.0.1:3001', '127.0.0.1:3002']`:
 
 ``` js
 var servers = ['127.0.0.1:3000', '127.0.0.1:3001', '127.0.0.1:3002'];
+var LevelCluster = require('level-cluster');
 var db = new LevelCluster(servers);
 
  // will consistently hash the write to a server based on the key
