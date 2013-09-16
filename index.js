@@ -66,6 +66,26 @@ LevelCluster.prototype.createReadStream = function (options) {
   return aggregator;
 };
 
+LevelCluster.prototype.createKeyStream = function (options) {
+  this.connectAllServers();
+  var serverKeys = Object.keys(this.servers);
+  var self = this;
+  var streams = [];
+  serverKeys.forEach(function (serverKey) {
+    var server = self.servers[serverKey];
+    streams.push(server.createKeyStream(options));
+  });
+  var aggregator = merge(compareKeys, streams);
+  streams.forEach(function (stream) {
+    stream.on('error', function (err) {
+      // for some reason we get this error
+      if (err.toString() !== 'Error: unexpected disconnection') 
+        aggregator.emit('error', err);
+    });
+  });
+  return aggregator;
+};
+
 LevelCluster.prototype.close = function (cb) {
   var serverKeys = Object.keys(this.servers);
   var next = after(serverKeys.length, cb);
@@ -112,6 +132,14 @@ function getServer(server) {
 function compare(value1, value2) {
   var key1 = encodeKey(value1.key),
       key2 = encodeKey(value2.key);
+  if (key1 > key2) return 1;
+  else if (key1 < key2) return -1;
+  return 0;
+}
+
+function compareKeys(value1, value2) {
+  var key1 = encodeKey(value1),
+      key2 = encodeKey(value2);
   if (key1 > key2) return 1;
   else if (key1 < key2) return -1;
   return 0;
