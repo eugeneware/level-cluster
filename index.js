@@ -193,9 +193,10 @@ LevelCluster.prototype.getServerByName = function (server) {
 
 function getServer(server) {
   var parts = server.split(':');
+  var host = parts[0];
   var port = parts[1];
   var db = multilevel.client();
-  var con = net.connect(port);
+  var con = net.connect({ host: host, port: port });
   con.pipe(db.createRpcStream()).pipe(con);
   db.serverName = server;
   return db;
